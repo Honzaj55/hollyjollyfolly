@@ -1,0 +1,182 @@
+
+* {
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #111;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#container {
+    background: #1b1b1b;
+    padding: 32px;
+    border-radius: 16px;
+    width: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+
+h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    text-align: center;
+}
+
+#codleNumber {
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+/* GAME */
+#gameDisplay {
+    position: relative;
+    display: inline-block;
+}
+
+#colordisplay {
+    width: 340px;
+    height: 340px;
+    border-radius: 12px;
+    border: 2px solid #444;
+    background: #000;
+    position: relative;
+    cursor: pointer;
+}
+
+/* EYES & CHARACTER (UNCHANGED) */
+#baseEye {
+    position: absolute;
+    width: 310px;
+    height: 310px;
+    bottom: -115px;
+    right: -115px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+#hoverEye {
+    position: absolute;
+    width: 250px;
+    height: 250px;
+    bottom: -80px;
+    right: -78px;
+    pointer-events: none;
+    z-index: 3;
+}
+
+#character {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 180px;
+    height: 180px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* MODE BUTTONS */
+#modeRow {
+    display: flex;
+    gap: 10px;
+}
+
+/* INPUT */
+#inputRow {
+    display: flex;
+    gap: 10px;
+}
+
+input[type="text"] {
+    width: 220px;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 1.1rem;
+    background: #111;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 8px;
+    outline: none;
+    text-transform: uppercase;
+}
+
+input[type="text"]:focus {
+    border-color: #aaa;
+}
+
+/* BUTTONS */
+button {
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+button:hover { background: #444; }
+button:active { background: #555; }
+
+/* RESULTS */
+#afterguessresult {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* COPY / HISTORY */
+#utilityRow {
+    display: flex;
+    gap: 10px;
+}
+
+/* PAST LIST */
+#pastList {
+    width: 100%;
+    background: #111;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.95rem;
+}
+
+.pastItem {
+    padding: 6px;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+}
+
+.pastItem:hover {
+    background: #222;
+}
+
+/* NAV */
+#navigation {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+input:disabled, button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+
+
+
+
+
+
