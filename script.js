@@ -9,27 +9,18 @@ window.addEventListener('DOMContentLoaded', () => {
     const copyBtn = document.getElementById('copyguessgrade');
     const codleNumber = document.getElementById('codleNumber');
     const hexTitle = document.getElementById('hexTitle');
-    const toggleModeBtn = document.getElementById('toggleMode');
-    const toggleRandomBtn = document.getElementById('toggleRandom');
     setupEyeFollow();
-
-    const character = document.getElementById("character");
-    const baseEye = document.getElementById("baseEye");
-    const hoverEye = document.getElementById("hoverEye");
 
     /* =========================
        STATE
        ========================= */
-    function loadDaily() {
-    const day = getCodleNumber();
-    codleNumber.textContent = `#${day}`;
-    setColor(generateDailyHex(day));
-    }
 
     const DAILY_START = new Date(2025, 11, 27); // Dec 27 2025 = #1
+    let lastScore = null;
     let miniMode = false;   
     let randomMode = false;
     let currentHex = "";
+    let miniHex = "";
     function seededRandom(seed) {
     let x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
@@ -47,8 +38,7 @@ window.addEventListener('DOMContentLoaded', () => {
         cry: {frames:Array.from({length:16},(_,i)=>`sprites/reactions/cry${i+1}.png`), loopStart:11, loopEnd:15}
     };
 
-    let state="idle", frameIndex=0, animationTimer=null, eyeHoverTimer=null, blinkTimer=null;
-    const HISTORY_KEY = "hjf_history";
+    let frameIndex=0, animationTimer=null, eyeHoverTimer=null, blinkTimer=null;
 
     /* =========================
        DATE / CODLE NUMBER
@@ -83,13 +73,20 @@ window.addEventListener('DOMContentLoaded', () => {
 }
 
     function generateRandomHex() {
-        const letters = "0123456789ABCDEF";
-        let hex = "#";
-        for (let i = 0; i < 6; i++) hex += letters[Math.floor(Math.random() * 16)];
-        currentHex = hex;
-        codleNumber.textContent = "Random";
-        hexTitle.textContent = "Random Codle";
-        setColor(hex);
+    const letters = "0123456789ABCDEF";
+    let hex = "";
+    for (let i = 0; i < 6; i++) {
+        hex += letters[Math.floor(Math.random() * 16)];
+    }
+    currentHex = hex;
+    setColor("#" + hex);
+}
+
+
+    function loadDaily() {
+        const day = getCodleNumber();
+        codleNumber.textContent = `#${day}`;
+        setColor(generateDailyHex(day));
     }
 
     function setColor(hex) {
@@ -144,14 +141,35 @@ window.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function gradeGuess(input) {
-        let guess = input.replace("#","");
-        if (miniMode && guess.length === 3) guess = expandMini("#"+guess).slice(1);
-        if (guess.length !== 6) return 0;
-
-        const d = deltaE(rgbToLab(currentHex), rgbToLab("#"+guess));
-        return Math.max(0, Math.round(100 - d));
+function gradeGuess(input) {
+    let guess = input.replace("#", "");
+    if (miniMode && guess.length === 3) {
+        guess = expandMini("#" + guess).slice(1);
     }
+    if (guess.length !== 6) return 0;
+
+    const labTarget = rgbToLab("#" + currentHex);
+    const labGuess  = rgbToLab("#" + guess);
+
+    const dE = deltaE(labTarget, labGuess);
+
+    /*
+      Perceptual tuning:
+      - ΔE ~ 2  = perfect
+      - ΔE ~ 15 = good
+      - ΔE ~ 40 = bad
+      - ΔE > 60 = terrible
+    */
+
+    const score =
+        dE < 2  ? 100 :
+        dE < 10 ? 95 - (dE - 2) * 2 :
+        dE < 25 ? 80 - (dE - 10) * 1.5 :
+        dE < 50 ? 50 - (dE - 25) :
+                  Math.max(5, 25 - (dE - 50) * 0.5);
+
+    return Math.round(Math.max(0, Math.min(100, score)));
+}
 
     /* =========================
        STORAGE
@@ -160,28 +178,43 @@ window.addEventListener('DOMContentLoaded', () => {
         return `hjf_${getCodleNumber()}_${miniMode?"mini":"full"}`;
     }
 
-    function saveDailyResult(score, guess, hex, date = new Date()) {
-        const key = date.toISOString().split('T')[0];
-        const mode = miniMode ? "mini" : "normal";
-        const data = { score, guess, hex, timestamp: Date.now(), number: getCodleNumber(date), mode };
-        
-        try { localStorage.setItem(key + "_" + mode, JSON.stringify(data)); } catch(e){}
-        
-        // Save in history
-        try {
-            const raw = localStorage.getItem(HISTORY_KEY);
-            const arr = raw ? JSON.parse(raw) : [];
-            const exists = arr.findIndex(e => e.dateKey === key && e.mode === mode);
-            if (exists >= 0) arr[exists] = {...data, dateKey: key};
-            else arr.push({...data, dateKey: key});
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
-        } catch(e){}
-    }
+    function saveDailyResult({ score, guess, hex, mode, number, isRandom }) {
+    const entry = {
+        score,
+        guess,
+        hex,
+        mode,          // "mini" | "normal"
+        number,        // codle #
+        isRandom,      // true / false
+        date: new Date().toISOString()
+    };
 
+    const raw = localStorage.getItem("hjf_history_v3");
+    const history = raw ? JSON.parse(raw) : [];
+    
+
+    // prevent duplicates (same day + same mode)
+    const key = `${number}_${mode}_${isRandom}`;
+    if (history.some(e => e.key === key)) return;
+
+    entry.key = key;
+    history.push(entry);
+
+    localStorage.setItem("hjf_history_v3", JSON.stringify(history));
+    }
 
     function getDailyResult() {
         const data = localStorage.getItem(storageKey());
         return data ? JSON.parse(data) : null;
+    }
+
+    function resetGuessInput() {
+        userguess.value = "";
+        userguess.style.backgroundColor = "";
+        userguess.style.color = "";
+        userguess.style.fontWeight = "";
+        userguess.disabled = false;
+        document.getElementById('submitguess').disabled = false;
     }
 
     /* =========================
@@ -189,7 +222,9 @@ window.addEventListener('DOMContentLoaded', () => {
        ========================= */
     document.getElementById('submitguess').addEventListener('click', () => {
     if (!randomMode && hasGuessedToday()) {
-        afterguessresult.textContent = "You already played today's codle!";
+        afterguessresult.textContent = "You have already guessed today!";
+        miniMode = false;
+        
         return;
     }
 
@@ -197,73 +232,87 @@ window.addEventListener('DOMContentLoaded', () => {
     if (guess.length < 3) return;
 
     const score = gradeGuess(guess);
+    const lastScore = score;
 
     afterguessresult.textContent = `You scored: ${score}%`;
     reactToScore(score);
+    function applyGuessColor(hex) {
+    const fullHex = "#" + hex.padEnd(6, "0");
+
+    userguess.style.backgroundColor = fullHex;
+    userguess.style.color = "#000";
+    userguess.style.fontWeight = "bold";
+    }
+
+    applyGuessColor(userguess.value);
+
 
     if (!randomMode) {
-        saveDailyResult(score, guess, currentHex);
+        saveDailyResult({ score, guess, hex: currentHex, mode: miniMode ? "mini" : "normal", number: getCodleNumber(), isRandom: false });
         userguess.disabled = true;
         document.getElementById('submitguess').disabled = true;
     }
+    
 });
 
 
     copyBtn.addEventListener("click", () => {
-        const score = gradeGuess(userguess.value);
-        navigator.clipboard.writeText(
-            `HollyJollyFollyCodle ${codleNumber.textContent} ${score}%`
-        );
-    });
+    if (lastScore === null) return;
+
+    const hex = userguess.value.padEnd(6, "0").toUpperCase();
+    const label = miniMode ? "Mini" : "Normal";
+
+    const text =
+        `HollyJollyFollyCodle #${getCodleNumber()}\n` +
+        `${label} — ${lastScore}%\n` +
+        `⬛ #${hex}`;
+
+    navigator.clipboard.writeText(text);   
+});
 
     /* =========================
        MODE TOGGLES
        ========================= */
-    toggleModeBtn.addEventListener("click", () => {
-    miniMode = !miniMode;
-    toggleModeBtn.textContent = miniMode ? "Normal" : "Mini";
-    randomMode ? generateRandomHex() : loadDaily();
-;
-    afterguessresult.textContent = "";
-    });
-
-    toggleRandomBtn.addEventListener("click", () => {
-        randomMode = !randomMode;
+    document.getElementById('toggleMode').addEventListener("click", () => {
+        miniMode = !miniMode;
+        resetGuessInput();
+        document.getElementById('toggleMode').textContent = miniMode ? "Normal" : "Mini";
         randomMode ? generateRandomHex() : loadDaily();
         afterguessresult.textContent = "";
     });
+
+    document.getElementById('toggleRandom').addEventListener("click", () => {
+        randomMode = !randomMode;
+
+        resetGuessInput();
+        afterguessresult.textContent = "";
+
+        if (randomMode) {
+            hexTitle.textContent = "Random Codle";
+            codleNumber.textContent = "Random";
+            generateRandomHex();
+        } else {
+            hexTitle.textContent = "HollyJollyFollyCodle";
+            loadDaily();
+        }
+    });
+
             // ---------- PAST HEXCODES ----------
     const pastList = document.getElementById("pastList");
 
     document.getElementById("pasthexcodles").addEventListener("click", () => {
-        pastList.innerHTML = "";
         pastList.style.display =
             pastList.style.display === "none" ? "block" : "none";
 
-        Object.keys(localStorage)
-            .filter(k => k.startsWith("hjf_"))
-            .sort()
-            .forEach(key => {
-                const data = JSON.parse(localStorage.getItem(key));
-                if (!data) return;
-
-                const div = document.createElement("div");
-                div.className = "pastItem";
-                div.textContent = `#${data.number} — ${data.score}%`;
-                div.onclick = () => {
-                    currentHex = data.hex;
-                    setColor("#" + currentHex);
-                    codleNumber.textContent = `#${data.number}`;
-                    afterguessresult.textContent = "Replay mode";
-                    randomMode = false;
-                };
-                pastList.appendChild(div);
-            });
+        if (pastList.style.display === "block") {
+            renderPastHexcodles(pastList);
+        }
     });
 
     /* =========================
        ANIMATION CONTROL (UNCHANGED)
        ========================= */
+    
     function clearTimers(){
         clearInterval(animationTimer);
         clearTimeout(blinkTimer);
@@ -290,7 +339,31 @@ window.addEventListener('DOMContentLoaded', () => {
         },150);
     }
     
+    function renderPastHexcodles(container) {
+    const raw = localStorage.getItem("hjf_history_v3");
+    const history = raw ? JSON.parse(raw) : [];
 
+    container.innerHTML = "";
+
+    history
+        .sort((a,b) => b.number - a.number)
+        .forEach(entry => {
+            const row = document.createElement("div");
+
+            const modeLabel = entry.mode === "mini" ? "Mini" : "Normal";
+            const randLabel = entry.isRandom ? " (Random)" : "";
+
+            row.textContent =
+                `HJF Codle #${entry.number} — ${modeLabel}${randLabel} — ${entry.score}%`;
+
+            row.style.cursor = "pointer";
+            row.onclick = () => {
+                setColor("#" + entry.hex);
+            };
+
+            container.appendChild(row);
+        });
+    }
 
     function playReaction(type){
         const r=reactions[type];
@@ -341,14 +414,23 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function hasGuessedToday() {
-        const mode = miniMode ? "mini" : "normal";
-        const key = new Date().toISOString().split('T')[0];
-        return localStorage.getItem(key + "_" + mode) !== null;
-    }
+    const raw = localStorage.getItem("hjf_history_v3");
+    if (!raw) return false;
+
+    const history = JSON.parse(raw);
+    const day = getCodleNumber();
+    const mode = miniMode ? "mini" : "normal";
+
+    return history.some(e =>
+        e.number === day &&
+        e.mode === mode &&
+        e.isRandom === false
+    );  
+}
 
     startIdle();
     loadDaily();
-});
+    });
 
 function setupEyeFollow() {
     const baseEye = document.getElementById("baseEye");
