@@ -20,10 +20,20 @@ window.addEventListener('DOMContentLoaded', () => {
     /* =========================
        STATE
        ========================= */
+    function loadDaily() {
+    const day = getDayNumber();
+    codleNumber.textContent = `#${day}`;
+    setColor(generateDailyHex(day));
+    }
+
     const DAILY_START = new Date(2025, 11, 27); // Dec 27 2025 = #1
-    let miniMode = false;
+    let miniMode = false;   
     let randomMode = false;
     let currentHex = "";
+    function seededRandom(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+    }
 
     /* =========================
        SPRITES (UNCHANGED)
@@ -50,22 +60,27 @@ window.addEventListener('DOMContentLoaded', () => {
     /* =========================
        COLOR GENERATION
        ========================= */
-    function generateDailyHex() {
-        const seed = getCodleNumber();
-        const letters = "0123456789ABCDEF";
-        let full = "#", mini = "#";
+    function generateDailyHex(dayNumber) {
+    const letters = "0123456789ABCDEF";
+    let full = "";
+    let mini = "";
 
-        for (let i = 0; i < 6; i++) {
-            const v = letters[(seed * 31 + i * 17) % 16];
-            full += v;
-            if (i % 2 === 0) mini += v;
+    for (let i = 0; i < 6; i++) {
+        const r = seededRandom(dayNumber * 100 + i * 17);
+        full += letters[Math.floor(r * 16)];
+
+        if (i % 2 === 0) {
+            mini += letters[Math.floor(seededRandom(dayNumber * 50 + i) * 16)];
+        } else {
+            mini += "0";
         }
-
-        currentHex = miniMode ? expandMini(mini) : full;
-        codleNumber.textContent = `#${seed}`;
-        hexTitle.textContent = "HollyJollyFollyCodle";
-        setColor(currentHex);
     }
+
+    currentHex = full;
+    miniHex = mini;
+
+    return miniMode ? "#" + mini : "#" + full;
+}
 
     function generateRandomHex() {
         const letters = "0123456789ABCDEF";
@@ -207,13 +222,14 @@ window.addEventListener('DOMContentLoaded', () => {
     toggleModeBtn.addEventListener("click", () => {
     miniMode = !miniMode;
     toggleModeBtn.textContent = miniMode ? "Normal" : "Mini";
-    randomMode ? generateRandomHex() : generateDailyHex();
+    randomMode ? generateRandomHex() : loadDaily();
+;
     afterguessresult.textContent = "";
     });
 
     toggleRandomBtn.addEventListener("click", () => {
         randomMode = !randomMode;
-        randomMode ? generateRandomHex() : generateDailyHex();
+        randomMode ? generateRandomHex() : loadDaily();
         afterguessresult.textContent = "";
     });
             // ---------- PAST HEXCODES ----------
@@ -325,7 +341,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     startIdle();
-    generateDailyHex();
+    loadDaily();
 });
 
 function hasGuessedToday() {
