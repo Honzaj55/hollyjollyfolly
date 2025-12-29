@@ -21,7 +21,7 @@ window.addEventListener('DOMContentLoaded', () => {
        STATE
        ========================= */
     function loadDaily() {
-    const day = getDayNumber();
+    const day = getCodleNumber();
     codleNumber.textContent = `#${day}`;
     setColor(generateDailyHex(day));
     }
@@ -340,15 +340,16 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('submitguess').disabled = true;
     }
 
+    function hasGuessedToday() {
+        const mode = miniMode ? "mini" : "normal";
+        const key = new Date().toISOString().split('T')[0];
+        return localStorage.getItem(key + "_" + mode) !== null;
+    }
+
     startIdle();
     loadDaily();
 });
 
-function hasGuessedToday() {
-    const mode = miniMode ? "mini" : "normal";
-    const key = new Date().toISOString().split('T')[0];
-    return localStorage.getItem(key + "_" + mode) !== null;
-}
 function setupEyeFollow() {
     const baseEye = document.getElementById("baseEye");
     const colordisplay = document.getElementById("colordisplay");
