@@ -133,43 +133,50 @@ window.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function deltaE(l1,l2){
+    function perceptualDistance(lab1, lab2) {
+        const dL = lab1.L - lab2.L;
+        const dA = lab1.a - lab2.a;
+        const dB = lab1.b - lab2.b;
+
+        // Humans forgive lightness more than hue
+        const lightnessWeight = 0.4;
+        const chromaWeight = 1.0;
+
         return Math.sqrt(
-            (l1.L-l2.L)**2 +
-            (l1.a-l2.a)**2 +
-            (l1.b-l2.b)**2
+            lightnessWeight * dL * dL +
+            chromaWeight * (dA * dA + dB * dB)
         );
     }
 
-function gradeGuess(input) {
-    let guess = input.replace("#", "");
-    if (miniMode && guess.length === 3) {
-        guess = expandMini("#" + guess).slice(1);
+    function gradeGuess(input) {
+        let guess = input.replace("#", "");
+        if (miniMode && guess.length === 3) {
+            guess = expandMini("#" + guess).slice(1);
+        }
+        if (guess.length !== 6) return 0;
+
+        const targetLab = rgbToLab("#" + currentHex);
+        const guessLab  = rgbToLab("#" + guess);
+
+        const d = perceptualDistance(targetLab, guessLab);
+
+        /*
+        Tuned scale (by testing):
+        d < 5    = almost identical
+        d < 15   = very close (same color family)
+        d < 35   = clearly off
+        d > 60   = very wrong
+        */
+
+        let score;
+        if (d < 3) score = 100;
+        else if (d < 8) score = 95 - (d - 3) * 1.5;
+        else if (d < 20) score = 85 - (d - 8) * 1.2;
+        else if (d < 40) score = 65 - (d - 20) * 1.5;
+        else score = Math.max(5, 35 - (d - 40));
+
+        return Math.round(Math.max(0, Math.min(100, score)));
     }
-    if (guess.length !== 6) return 0;
-
-    const labTarget = rgbToLab("#" + currentHex);
-    const labGuess  = rgbToLab("#" + guess);
-
-    const dE = deltaE(labTarget, labGuess);
-
-    /*
-      Perceptual tuning:
-      - ΔE ~ 2  = perfect
-      - ΔE ~ 15 = good
-      - ΔE ~ 40 = bad
-      - ΔE > 60 = terrible
-    */
-
-    const score =
-        dE < 2  ? 100 :
-        dE < 10 ? 95 - (dE - 2) * 2 :
-        dE < 25 ? 80 - (dE - 10) * 1.5 :
-        dE < 50 ? 50 - (dE - 25) :
-                  Math.max(5, 25 - (dE - 50) * 0.5);
-
-    return Math.round(Math.max(0, Math.min(100, score)));
-}
 
     /* =========================
        STORAGE
