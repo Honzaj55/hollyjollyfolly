@@ -285,7 +285,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // Configure these values based on your testing!
         const maxDelta = 100;  // Colors more different than this = 0%
         const minDelta = 0;    // Colors closer than this = 100%
-        const curve = 1.1;     // How fast the score drops (0.5-3.0)
+        const curve = 1;     // How fast the score drops (0.5-3.0)
 
         const score = calculateSimilarity(deltaE, maxDelta, minDelta, curve);
         return Math.round(score);
@@ -607,3 +607,4 @@ function setupEyeFollow() {
         baseEye.style.transform = `translate(0px, 0px)`;
     });
 }
+
