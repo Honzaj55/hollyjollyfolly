@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>BetterHexcodle</title>
+<title>HollyJollyFollyCodle</title>
 <link rel="stylesheet" href="style.css">
 </head>
 
@@ -15,7 +15,7 @@
     <div id="gameDisplay">
         <div id="colordisplay">
             <img id="baseEye" src="sprites/eyes/eye1.png" alt="Eye">
-            <img id="hoverEye" src="" alt="Hover Glimmer" style="display:none;">
+            <img id="hoverEye" src="sprites/eyes/eye1_glimmer.png" alt="Hover Glimmer" style="display:none;">
             <img id="character" src="sprites/idle/idles-0.png" alt="Character">
         </div>
     </div>
@@ -45,13 +45,21 @@
 </div>
 
 <div id="navigation">
-    <button onclick="location.href='commsheet.html'">Art Commission Sheet</button>
-    <button onclick="location.href='randommode.html'">randommode</button>
+    <button id="commsheetBtn">Art Commission Sheet</button>
+    <button id="randommodeBtn">randommode</button>
     <button id="toggleUnlimited" style="display:none"></button>
     <div id="guessStack" style="display:none"></div>
 
 </div>
 
 <script src="script.js"></script>
+<script>
+    document.getElementById('commsheetBtn').addEventListener('click', () => {
+        location.href = 'commsheet.html';
+    });
+    document.getElementById('randommodeBtn').addEventListener('click', () => {
+        location.href = 'randommode.html';
+    });
+</script>
 </body>
 </html>
