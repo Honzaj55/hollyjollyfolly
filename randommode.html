@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>randommode</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div id="container">
+
+    <h1 id="hexTitle">HollyJollyFollyCodle</h1>
+    <div id="codleNumber">#0</div>
+
+    <div id="gameDisplay">
+        <div id="colordisplay">
+            <img id="baseEye" src="sprites/eyes/eye1.png" alt="Eye">
+            <img id="hoverEye" src="" alt="Hover Glimmer" style="display:none;">
+            <img id="character" src="sprites/idle/idles-0.png" alt="Character">
+        </div>
+    </div>
+
+    <!-- MODE ROW -->
+    <div id="modeRow">
+        <button id="toggleMode">Mini</button>
+        <button id="toggleUnlimited">New</button>
+    </div>
+
+    <!-- INPUT -->
+    <div id="inputRow">
+        <input type="text" id="userguess" placeholder="FFFFFF">
+        <button id="submitguess">Submit</button>
+        <div id="guessStack"></div>
+    </div>
+
+    <div id="afterguessresult"></div>
+
+    <!-- SHARE / HISTORY -->
+    <div id="utilityRow">
+        <button id="copyguessgrade">Copy Grade</button>
+        <button id="pasthexcodles">Past Hexcodles</button>
+    </div>
+
+    <!-- PAST LIST -->
+    <div id="pastList" style="display:none;"></div>
+
+</div>
+
+<div id="navigation">
+    <button onclick="location.href='commsheet.html'">Art Commission Sheet</button>
+    <button onclick="location.href='index.html'">Home</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
