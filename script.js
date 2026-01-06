@@ -9,6 +9,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const copyBtn = document.getElementById('copyguessgrade');
     const codleNumber = document.getElementById('codleNumber');
     const hexTitle = document.getElementById('hexTitle');
+    const character = document.getElementById('character');
+    const hoverEye = document.getElementById('hoverEye');
     setupEyeFollow();
     
 
@@ -23,6 +25,7 @@ window.addEventListener('DOMContentLoaded', () => {
     let currentHex = "";
     let miniHex = "";
     let randomUnlimited = 0;
+    let randomGuessCount = 0;
     
 
     // Check if this is the random mode page
@@ -347,18 +350,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
        const score = gradeGuess(guess);
         lastScore = score;
-
-        randomGuessCount++;
-
-        afterguessresult.textContent =
-            randomMode && randomUnlimited
-                ? `Guess ${randomGuessCount}: ${score}%`
-                : `You scored: ${score}%`;
-
-        reactToScore(score);
-
-        afterguessresult.textContent = `You scored: ${score}%`;
-        reactToScore(score);
         
         function applyGuessColor(hex) {
             const fullHex = "#" + hex.padEnd(6, "0");
@@ -368,8 +359,10 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         
         applyGuessColor(userguess.value);
+        reactToScore(score);
 
         if (!randomMode) {
+            afterguessresult.textContent = `You scored: ${score}%`;
             saveDailyResult({ 
                 score, 
                 guess, 
@@ -397,6 +390,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
             guessStack.prepend(entry);
 
+            afterguessresult.textContent = `Guess ${randomGuessCount}: ${score}%`;
             resetGuessInput();
             
         }
