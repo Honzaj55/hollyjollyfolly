@@ -10,6 +10,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const codleNumber = document.getElementById('codleNumber');
     const hexTitle = document.getElementById('hexTitle');
     setupEyeFollow();
+    
 
     /* =========================
        STATE
@@ -21,11 +22,21 @@ window.addEventListener('DOMContentLoaded', () => {
     let randomMode = false;
     let currentHex = "";
     let miniHex = "";
+    let randomUnlimited = 0;
+    
+
+    // Check if this is the random mode page
+    const isRandomPage = window.location.pathname.includes('randommode.html');
+    if (isRandomPage) {
+        randomMode = true;
+    }
+    
     function seededRandom(seed) {
-    let x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
+        let x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
     }
 
+    // ... rest of your code stays exactly the same ...
     /* =========================
        SPRITES (UNCHANGED)
        ========================= */
@@ -51,37 +62,39 @@ window.addEventListener('DOMContentLoaded', () => {
        COLOR GENERATION
        ========================= */
     function generateDailyHex(dayNumber) {
-    const letters = "0123456789ABCDEF";
-    let full = "";
-    let mini = "";
+        const letters = "0123456789ABCDEF";
+        let full = "";
+        let mini = "";
 
-    for (let i = 0; i < 6; i++) {
-        const r = seededRandom(dayNumber * 100 + i * 17);
-        full += letters[Math.floor(r * 16)];
+        for (let i = 0; i < 6; i++) {
+            const r = seededRandom(dayNumber * 100 + i * 17);
+            full += letters[Math.floor(r * 16)];
 
-        if (i % 2 === 0) {
-            mini += letters[Math.floor(seededRandom(dayNumber * 50 + i) * 16)];
-        } else {
-            mini += "0";
+            if (i % 2 === 0) {
+                mini += letters[Math.floor(seededRandom(dayNumber * 50 + i) * 16)];
+            } else {
+                mini += "0";
+            }
         }
+
+        currentHex = full;
+        miniHex = mini;
+
+        return miniMode ? "#" + mini : "#" + full;
     }
-
-    currentHex = full;
-    miniHex = mini;
-
-    return miniMode ? "#" + mini : "#" + full;
-}
 
     function generateRandomHex() {
-    const letters = "0123456789ABCDEF";
-    let hex = "";
-    for (let i = 0; i < 6; i++) {
-        hex += letters[Math.floor(Math.random() * 16)];
-    }
-    currentHex = hex;
-    setColor("#" + hex);
-}
+        const letters = "0123456789ABCDEF";
+        let hex = "";
+        for (let i = 0; i < 6; i++) {
+            hex += letters[Math.floor(Math.random() * 16)];
+        }
+        currentHex = hex;
+        setColor("#" + hex);
+        randomGuessCount = 0;
+        document.getElementById("guessStack").innerHTML = "";
 
+    }
 
     function loadDaily() {
         const day = getCodleNumber();
@@ -109,43 +122,151 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     /* =========================
-       COLOR SCIENCE (LAB / DELTA E)
+       CIEDE2000 COLOR SCIENCE
        ========================= */
-    function rgbToLab(hex) {
-        let r = parseInt(hex.substr(1,2),16)/255;
-        let g = parseInt(hex.substr(3,2),16)/255;
-        let b = parseInt(hex.substr(5,2),16)/255;
+    function rgbToXyz(r, g, b) {
+        r = r / 255;
+        g = g / 255;
+        b = b / 255;
 
-        [r,g,b] = [r,g,b].map(v =>
-            v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92
+        r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+        g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+        b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+        const x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+        const y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+        const z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+        return { x: x * 100, y: y * 100, z: z * 100 };
+    }
+
+    function xyzToLab(x, y, z) {
+        const refX = 95.047;
+        const refY = 100.000;
+        const refZ = 108.883;
+
+        x = x / refX;
+        y = y / refY;
+        z = z / refZ;
+
+        const f = (t) => t > 0.008856 ? Math.pow(t, 1/3) : (7.787 * t + 16/116);
+
+        x = f(x);
+        y = f(y);
+        z = f(z);
+
+        const l = (116 * y) - 16;
+        const a = 500 * (x - y);
+        const b = 200 * (y - z);
+
+        return { l, a, b };
+    }
+
+    function ciede2000(lab1, lab2) {
+        const deg2rad = (deg) => deg * (Math.PI / 180);
+
+        const c1 = Math.sqrt(lab1.a * lab1.a + lab1.b * lab1.b);
+        const c2 = Math.sqrt(lab2.a * lab2.a + lab2.b * lab2.b);
+        const cAvg = (c1 + c2) / 2;
+
+        const g = 0.5 * (1 - Math.sqrt(Math.pow(cAvg, 7) / (Math.pow(cAvg, 7) + Math.pow(25, 7))));
+
+        const a1Prime = lab1.a * (1 + g);
+        const a2Prime = lab2.a * (1 + g);
+
+        const c1Prime = Math.sqrt(a1Prime * a1Prime + lab1.b * lab1.b);
+        const c2Prime = Math.sqrt(a2Prime * a2Prime + lab2.b * lab2.b);
+
+        const h1Prime = (Math.atan2(lab1.b, a1Prime) * 180 / Math.PI + 360) % 360;
+        const h2Prime = (Math.atan2(lab2.b, a2Prime) * 180 / Math.PI + 360) % 360;
+
+        const deltaLPrime = lab2.l - lab1.l;
+        const deltaCPrime = c2Prime - c1Prime;
+
+        let deltaHPrime;
+        if (c1Prime * c2Prime === 0) {
+            deltaHPrime = 0;
+        } else if (Math.abs(h2Prime - h1Prime) <= 180) {
+            deltaHPrime = h2Prime - h1Prime;
+        } else if (h2Prime - h1Prime > 180) {
+            deltaHPrime = h2Prime - h1Prime - 360;
+        } else {
+            deltaHPrime = h2Prime - h1Prime + 360;
+        }
+
+        const deltaHPrimeValue = 2 * Math.sqrt(c1Prime * c2Prime) * Math.sin(deg2rad(deltaHPrime / 2));
+
+        const lAvgPrime = (lab1.l + lab2.l) / 2;
+        const cAvgPrime = (c1Prime + c2Prime) / 2;
+
+        let hAvgPrime;
+        if (c1Prime * c2Prime === 0) {
+            hAvgPrime = h1Prime + h2Prime;
+        } else if (Math.abs(h1Prime - h2Prime) <= 180) {
+            hAvgPrime = (h1Prime + h2Prime) / 2;
+        } else if (h1Prime + h2Prime < 360) {
+            hAvgPrime = (h1Prime + h2Prime + 360) / 2;
+        } else {
+            hAvgPrime = (h1Prime + h2Prime - 360) / 2;
+        }
+
+        const t = 1 - 0.17 * Math.cos(deg2rad(hAvgPrime - 30)) +
+                    0.24 * Math.cos(deg2rad(2 * hAvgPrime)) +
+                    0.32 * Math.cos(deg2rad(3 * hAvgPrime + 6)) -
+                    0.20 * Math.cos(deg2rad(4 * hAvgPrime - 63));
+
+        const deltaTheta = 30 * Math.exp(-Math.pow((hAvgPrime - 275) / 25, 2));
+
+        const rC = 2 * Math.sqrt(Math.pow(cAvgPrime, 7) / (Math.pow(cAvgPrime, 7) + Math.pow(25, 7)));
+
+        const sL = 1 + (0.015 * Math.pow(lAvgPrime - 50, 2)) / Math.sqrt(20 + Math.pow(lAvgPrime - 50, 2));
+        const sC = 1 + 0.045 * cAvgPrime;
+        const sH = 1 + 0.015 * cAvgPrime * t;
+
+        const rT = -Math.sin(deg2rad(2 * deltaTheta)) * rC;
+
+        const kL = 1, kC = 1, kH = 1;
+
+        const deltaE = Math.sqrt(
+            Math.pow(deltaLPrime / (kL * sL), 2) +
+            Math.pow(deltaCPrime / (kC * sC), 2) +
+            Math.pow(deltaHPrimeValue / (kH * sH), 2) +
+            rT * (deltaCPrime / (kC * sC)) * (deltaHPrimeValue / (kH * sH))
         );
 
-        let x = (r*0.4124 + g*0.3576 + b*0.1805) / 0.95047;
-        let y = (r*0.2126 + g*0.7152 + b*0.0722);
-        let z = (r*0.0193 + g*0.1192 + b*0.9505) / 1.08883;
+        return deltaE;
+    }
 
-        const f = t => t > 0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
-
+    function hexToRgb(hex) {
+        hex = hex.replace("#", "");
         return {
-            L: 116*f(y)-16,
-            a: 500*(f(x)-f(y)),
-            b: 200*(f(y)-f(z))
+            r: parseInt(hex.substr(0, 2), 16),
+            g: parseInt(hex.substr(2, 2), 16),
+            b: parseInt(hex.substr(4, 2), 16)
         };
     }
 
-    function perceptualDistance(lab1, lab2) {
-        const dL = lab1.L - lab2.L;
-        const dA = lab1.a - lab2.a;
-        const dB = lab1.b - lab2.b;
+    function calculateDeltaE(hex1, hex2) {
+        const rgb1 = hexToRgb(hex1);
+        const rgb2 = hexToRgb(hex2);
 
-        // Humans forgive lightness more than hue
-        const lightnessWeight = 0.4;
-        const chromaWeight = 1.0;
+        const xyz1 = rgbToXyz(rgb1.r, rgb1.g, rgb1.b);
+        const xyz2 = rgbToXyz(rgb2.r, rgb2.g, rgb2.b);
 
-        return Math.sqrt(
-            lightnessWeight * dL * dL +
-            chromaWeight * (dA * dA + dB * dB)
-        );
+        const lab1 = xyzToLab(xyz1.x, xyz1.y, xyz1.z);
+        const lab2 = xyzToLab(xyz2.x, xyz2.y, xyz2.z);
+
+        return ciede2000(lab1, lab2);
+    }
+
+    function calculateSimilarity(deltaE, maxDelta, minDelta, curve) {
+        if (deltaE <= minDelta) return 100;
+        if (deltaE >= maxDelta) return 0;
+
+        const normalized = (deltaE - minDelta) / (maxDelta - minDelta);
+        const similarity = 100 * Math.pow(1 - normalized, curve);
+        
+        return Math.max(0, Math.min(100, similarity));
     }
 
     function gradeGuess(input) {
@@ -155,27 +276,16 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         if (guess.length !== 6) return 0;
 
-        const targetLab = rgbToLab("#" + currentHex);
-        const guessLab  = rgbToLab("#" + guess);
+        // Calculate CIEDE2000 Delta E
+        const deltaE = calculateDeltaE("#" + currentHex, "#" + guess);
 
-        const d = perceptualDistance(targetLab, guessLab);
+        // Configure these values based on your testing!
+        const maxDelta = 100;  // Colors more different than this = 0%
+        const minDelta = 0;    // Colors closer than this = 100%
+        const curve = 1.1;     // How fast the score drops (0.5-3.0)
 
-        /*
-        Tuned scale (by testing):
-        d < 5    = almost identical
-        d < 15   = very close (same color family)
-        d < 35   = clearly off
-        d > 60   = very wrong
-        */
-
-        let score;
-        if (d < 3) score = 100;
-        else if (d < 8) score = 95 - (d - 3) * 1.5;
-        else if (d < 20) score = 85 - (d - 8) * 1.2;
-        else if (d < 40) score = 65 - (d - 20) * 1.5;
-        else score = Math.max(5, 35 - (d - 40));
-
-        return Math.round(Math.max(0, Math.min(100, score)));
+        const score = calculateSimilarity(deltaE, maxDelta, minDelta, curve);
+        return Math.round(score);
     }
 
     /* =========================
@@ -186,28 +296,26 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveDailyResult({ score, guess, hex, mode, number, isRandom }) {
-    const entry = {
-        score,
-        guess,
-        hex,
-        mode,          // "mini" | "normal"
-        number,        // codle #
-        isRandom,      // true / false
-        date: new Date().toISOString()
-    };
+        const entry = {
+            score,
+            guess,
+            hex,
+            mode,
+            number,
+            isRandom,
+            date: new Date().toISOString()
+        };
 
-    const raw = localStorage.getItem("hjf_history_v3");
-    const history = raw ? JSON.parse(raw) : [];
-    
+        const raw = localStorage.getItem("hjf_history_v3");
+        const history = raw ? JSON.parse(raw) : [];
 
-    // prevent duplicates (same day + same mode)
-    const key = `${number}_${mode}_${isRandom}`;
-    if (history.some(e => e.key === key)) return;
+        const key = `${number}_${mode}_${isRandom}`;
+        if (history.some(e => e.key === key)) return;
 
-    entry.key = key;
-    history.push(entry);
+        entry.key = key;
+        history.push(entry);
 
-    localStorage.setItem("hjf_history_v3", JSON.stringify(history));
+        localStorage.setItem("hjf_history_v3", JSON.stringify(history));
     }
 
     function getDailyResult() {
@@ -228,54 +336,92 @@ window.addEventListener('DOMContentLoaded', () => {
        SUBMIT
        ========================= */
     document.getElementById('submitguess').addEventListener('click', () => {
-    if (!randomMode && hasGuessedToday()) {
-        afterguessresult.textContent = "You have already guessed today!";
-        miniMode = false;
+        if (!randomMode && hasGuessedToday()) {
+            afterguessresult.textContent = "You have already guessed today!";
+            miniMode = false;
+            return;
+        }
+
+        const guess = userguess.value.trim();
+        if (guess.length < 3) return;
+
+       const score = gradeGuess(guess);
+        lastScore = score;
+
+        randomGuessCount++;
+
+        afterguessresult.textContent =
+            randomMode && randomUnlimited
+                ? `Guess ${randomGuessCount}: ${score}%`
+                : `You scored: ${score}%`;
+
+        reactToScore(score);
+
+        afterguessresult.textContent = `You scored: ${score}%`;
+        reactToScore(score);
         
-        return;
-    }
+        function applyGuessColor(hex) {
+            const fullHex = "#" + hex.padEnd(6, "0");
+            userguess.style.backgroundColor = fullHex;
+            userguess.style.color = "#000";
+            userguess.style.fontWeight = "bold";
+        }
+        
+        applyGuessColor(userguess.value);
 
-    const guess = userguess.value.trim();
-    if (guess.length < 3) return;
+        if (!randomMode) {
+            saveDailyResult({ 
+                score, 
+                guess, 
+                hex: currentHex, 
+                mode: miniMode ? "mini" : "normal", 
+                number: getCodleNumber(), 
+                isRandom: false 
+            });
+            userguess.disabled = true;
+            document.getElementById('submitguess').disabled = true;
+        }
+        if (randomMode) {
+            randomGuessCount++;
 
-    const score = gradeGuess(guess);
-    const lastScore = score;
+            const guessStack = document.getElementById("guessStack");
 
-    afterguessresult.textContent = `You scored: ${score}%`;
-    reactToScore(score);
-    function applyGuessColor(hex) {
-    const fullHex = "#" + hex.padEnd(6, "0");
+            const padded = userguess.value.padEnd(6, "0").toUpperCase();
+            const entry = document.createElement("div");
 
-    userguess.style.backgroundColor = fullHex;
-    userguess.style.color = "#000";
-    userguess.style.fontWeight = "bold";
-    }
+            entry.className = "guess-entry";
+            entry.style.backgroundColor = `#${padded}`;
+            entry.style.color = score > 60 ? "#000" : "#fff";
 
-    applyGuessColor(userguess.value);
+            entry.textContent = `#${padded} — ${score}%`;
 
+            guessStack.prepend(entry);
 
-    if (!randomMode) {
-        saveDailyResult({ score, guess, hex: currentHex, mode: miniMode ? "mini" : "normal", number: getCodleNumber(), isRandom: false });
-        userguess.disabled = true;
-        document.getElementById('submitguess').disabled = true;
-    }
-    
-});
+            resetGuessInput();
+            
+        }
 
+    });
+
+    document.getElementById('toggleUnlimited').addEventListener('click', () => {
+        document.getElementById('toggleUnlimited').textContent = "New";
+
+        generateRandomHex();      
+    });
 
     copyBtn.addEventListener("click", () => {
-    if (lastScore === null) return;
+        if (lastScore === null) return;
 
-    const hex = userguess.value.padEnd(6, "0").toUpperCase();
-    const label = miniMode ? "Mini" : "Normal";
+        const hex = userguess.value.padEnd(6, "0").toUpperCase();
+        const label = miniMode ? "Mini" : "Normal";
 
-    const text =
-        `HollyJollyFollyCodle #${getCodleNumber()}\n` +
-        `${label} — ${lastScore}%\n` +
-        `⬛ #${hex}`;
+        const text =
+            `HollyJollyFollyCodle #${getCodleNumber()}\n` +
+            `${label} — ${lastScore}%\n` +
+            `⬛ #${hex}`;
 
-    navigator.clipboard.writeText(text);   
-});
+        navigator.clipboard.writeText(text);   
+    });
 
     /* =========================
        MODE TOGGLES
@@ -288,23 +434,25 @@ window.addEventListener('DOMContentLoaded', () => {
         afterguessresult.textContent = "";
     });
 
-    document.getElementById('toggleRandom').addEventListener("click", () => {
-        randomMode = !randomMode;
+    const toggleRandomBtn = document.getElementById('toggleRandom');
+    if (toggleRandomBtn) {
+        toggleRandomBtn.addEventListener("click", () => {
+            randomMode = !randomMode;
 
-        resetGuessInput();
-        afterguessresult.textContent = "";
+            resetGuessInput();
+            afterguessresult.textContent = "";
 
-        if (randomMode) {
-            hexTitle.textContent = "Random Codle";
-            codleNumber.textContent = "Random";
-            generateRandomHex();
-        } else {
-            hexTitle.textContent = "HollyJollyFollyCodle";
-            loadDaily();
-        }
-    });
+            if (randomMode) {
+                hexTitle.textContent = "Random Codle";
+                codleNumber.textContent = "Random";
+                generateRandomHex();
+            } else {
+                hexTitle.textContent = "HollyJollyFollyCodle";
+                loadDaily();
+            }
+        });
+    }
 
-            // ---------- PAST HEXCODES ----------
     const pastList = document.getElementById("pastList");
 
     document.getElementById("pasthexcodles").addEventListener("click", () => {
@@ -317,7 +465,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     /* =========================
-       ANIMATION CONTROL (UNCHANGED)
+       ANIMATION CONTROL
        ========================= */
     
     function clearTimers(){
@@ -347,29 +495,29 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderPastHexcodles(container) {
-    const raw = localStorage.getItem("hjf_history_v3");
-    const history = raw ? JSON.parse(raw) : [];
+        const raw = localStorage.getItem("hjf_history_v3");
+        const history = raw ? JSON.parse(raw) : [];
 
-    container.innerHTML = "";
+        container.innerHTML = "";
 
-    history
-        .sort((a,b) => b.number - a.number)
-        .forEach(entry => {
-            const row = document.createElement("div");
+        history
+            .sort((a,b) => b.number - a.number)
+            .forEach(entry => {
+                const row = document.createElement("div");
 
-            const modeLabel = entry.mode === "mini" ? "Mini" : "Normal";
-            const randLabel = entry.isRandom ? " (Random)" : "";
+                const modeLabel = entry.mode === "mini" ? "Mini" : "Normal";
+                const randLabel = entry.isRandom ? " (Random)" : "";
 
-            row.textContent =
-                `HJF Codle #${entry.number} — ${modeLabel}${randLabel} — ${entry.score}%`;
+                row.textContent =
+                    `HJF Codle #${entry.number} — ${modeLabel}${randLabel} — ${entry.score}%`;
 
-            row.style.cursor = "pointer";
-            row.onclick = () => {
-                setColor("#" + entry.hex);
-            };
+                row.style.cursor = "pointer";
+                row.onclick = () => {
+                    setColor("#" + entry.hex);
+                };
 
-            container.appendChild(row);
-        });
+                container.appendChild(row);
+            });
     }
 
     function playReaction(type){
@@ -421,28 +569,34 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function hasGuessedToday() {
-    const raw = localStorage.getItem("hjf_history_v3");
-    if (!raw) return false;
+        const raw = localStorage.getItem("hjf_history_v3");
+        if (!raw) return false;
 
-    const history = JSON.parse(raw);
-    const day = getCodleNumber();
-    const mode = miniMode ? "mini" : "normal";
+        const history = JSON.parse(raw);
+        const day = getCodleNumber();
+        const mode = miniMode ? "mini" : "normal";
 
-    return history.some(e =>
-        e.number === day &&
-        e.mode === mode &&
-        e.isRandom === false
-    );  
-}
+        return history.some(e =>
+            e.number === day &&
+            e.mode === mode &&
+            e.isRandom === false
+        );  
+    }
 
     startIdle();
+    if (randomMode) {
+        hexTitle.textContent = "Random Codle";
+        codleNumber.textContent = "Random";
+        generateRandomHex();
+    } else {
     loadDaily();
-    });
+}
+});
 
 function setupEyeFollow() {
     const baseEye = document.getElementById("baseEye");
     const colordisplay = document.getElementById("colordisplay");
-    const maxOffset = 1; // max movement in pixels
+    const maxOffset = 1;
 
     document.addEventListener("mousemove", (e) => {
         const rect = colordisplay.getBoundingClientRect();
