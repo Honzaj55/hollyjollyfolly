@@ -180,3 +180,18 @@ input:disabled, button:disabled {
 
 
 
+#guessStack {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guess-entry {
+    padding: 10px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,0.2);
+}
