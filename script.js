@@ -69,23 +69,21 @@ window.addEventListener('DOMContentLoaded', () => {
         let full = "";
         let mini = "";
 
-        for (let i = 0; i < 6; i++) {
+        // Generate 3 random hex digits for mini mode
+        for (let i = 0; i < 3; i++) {
             const r = seededRandom(dayNumber * 100 + i * 17);
-            full += letters[Math.floor(r * 16)];
-
-            if (i % 2 === 0) {
-                mini += letters[Math.floor(seededRandom(dayNumber * 50 + i) * 16)];
-            } else {
-                mini += "0";
-            }
+            const digit = letters[Math.floor(r * 16)];
+            mini += digit;
         }
+
+        // Expand mini to full: RGB -> RRGGBB
+        full = mini[0] + mini[0] + mini[1] + mini[1] + mini[2] + mini[2];
 
         currentHex = full;
         miniHex = mini;
 
         return miniMode ? "#" + mini : "#" + full;
-    }
-
+    }   
     function generateRandomHex() {
         const letters = "0123456789ABCDEF";
         let hex = "";
@@ -112,6 +110,7 @@ window.addEventListener('DOMContentLoaded', () => {
     function expandMini(hex) {
         hex = hex.replace("#","");
         return "#" + hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        
     }
 
     /* =========================
@@ -285,7 +284,7 @@ window.addEventListener('DOMContentLoaded', () => {
         // Configure these values based on your testing!
         const maxDelta = 100;  // Colors more different than this = 0%
         const minDelta = 0;    // Colors closer than this = 100%
-        const curve = 1;     // How fast the score drops (0.5-3.0)
+        const curve = 1.1;     // How fast the score drops (0.5-3.0)
 
         const score = calculateSimilarity(deltaE, maxDelta, minDelta, curve);
         return Math.round(score);
@@ -351,14 +350,25 @@ window.addEventListener('DOMContentLoaded', () => {
        const score = gradeGuess(guess);
         lastScore = score;
         
-        function applyGuessColor(hex) {
-            const fullHex = "#" + hex.padEnd(6, "0");
-            userguess.style.backgroundColor = fullHex;
-            userguess.style.color = "#000";
-            userguess.style.fontWeight = "bold";
+    function applyGuessColor(hex) {
+        let fullHex;
+        
+        if (miniMode && hex.length === 3) {
+            // Expand RGB to RRGGBB
+            fullHex = "#" + hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+            // Update the input to show the expanded hex
+            userguess.value = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        } else {
+            fullHex = "#" + hex.padEnd(6, "0");
         }
+
+        userguess.style.backgroundColor = fullHex;
+        userguess.style.color = "#000";
+        userguess.style.fontWeight = "bold";
+    }
         
         applyGuessColor(userguess.value);
+
         reactToScore(score);
 
         if (!randomMode) {
@@ -408,6 +418,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const hex = userguess.value.padEnd(6, "0").toUpperCase();
         const label = miniMode ? "Mini" : "Normal";
+        
 
         const text =
             `HollyJollyFollyCodle #${getCodleNumber()}\n` +
@@ -422,6 +433,7 @@ window.addEventListener('DOMContentLoaded', () => {
        ========================= */
     document.getElementById('toggleMode').addEventListener("click", () => {
         miniMode = !miniMode;
+        document.getElementById('userguess').placeholder = miniMode ? "RGB" : "RRGGBB";
         resetGuessInput();
         document.getElementById('toggleMode').textContent = miniMode ? "Normal" : "Mini";
         randomMode ? generateRandomHex() : loadDaily();
@@ -607,4 +619,3 @@ function setupEyeFollow() {
         baseEye.style.transform = `translate(0px, 0px)`;
     });
 }
-
