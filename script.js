@@ -66,24 +66,33 @@ window.addEventListener('DOMContentLoaded', () => {
        ========================= */
     function generateDailyHex(dayNumber) {
         const letters = "0123456789ABCDEF";
-        let full = "";
         let mini = "";
+        let full = "";
 
-        // Generate 3 random hex digits for mini mode
-        for (let i = 0; i < 3; i++) {
-            const r = seededRandom(dayNumber * 100 + i * 17);
-            const digit = letters[Math.floor(r * 16)];
-            mini += digit;
+        if (miniMode) {
+            // MINI MODE: Generate 3 random hex digits
+            for (let i = 0; i < 3; i++) {
+                const r = seededRandom(dayNumber * 100 + i * 17);
+                const digit = letters[Math.floor(r * 16)];
+                mini += digit;
+            }
+            // Expand to 6 digits (the "easy" version)
+            full = mini[0] + mini[0] + mini[1] + mini[1] + mini[2] + mini[2];
+            currentHex = full;
+            miniHex = mini;
+            return "#" + mini;
+        } else {
+            // NORMAL MODE: Generate full 6 random hex digits
+            for (let i = 0; i < 6; i++) {
+                const r = seededRandom(dayNumber * 1000 + i * 37);
+                const digit = letters[Math.floor(r * 16)];
+                full += digit;
+            }
+            currentHex = full;
+            miniHex = full.slice(0, 3);  // First 3 digits as reference
+            return "#" + full;
         }
-
-        // Expand mini to full: RGB -> RRGGBB
-        full = mini[0] + mini[0] + mini[1] + mini[1] + mini[2] + mini[2];
-
-        currentHex = full;
-        miniHex = mini;
-
-        return miniMode ? "#" + mini : "#" + full;
-    }   
+    }
     function generateRandomHex() {
         const letters = "0123456789ABCDEF";
         let hex = "";
@@ -97,10 +106,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
     }
 
-    function loadDaily() {
+     function loadDaily() {
         const day = getCodleNumber();
         codleNumber.textContent = `#${day}`;
-        setColor(generateDailyHex(day));
+        const hex = generateDailyHex(day);
+        setColor(hex);
+        
+        // Add visual indicator
+        if (miniMode) {
+            hexTitle.textContent = "HollyJollyFollyCodle (Mini)";
+            document.getElementById("userguess").placeholder = "RGB";
+        } else {
+            hexTitle.textContent = "HollyJollyFollyCodle";
+            document.getElementById("userguess").placeholder = "RRGGBB";
+        }
     }
 
     function setColor(hex) {
@@ -412,22 +431,68 @@ window.addEventListener('DOMContentLoaded', () => {
 
         generateRandomHex();      
     });
-
     copyBtn.addEventListener("click", () => {
         if (lastScore === null) return;
 
         const hex = userguess.value.padEnd(6, "0").toUpperCase();
         const label = miniMode ? "Mini" : "Normal";
         
+        // Create a visual score bar using emojis
+        const scoreBar = createScoreBar(lastScore);
 
         const text =
             `HollyJollyFollyCodle #${getCodleNumber()}\n` +
             `${label} — ${lastScore}%\n` +
-            `⬛ #${hex}`;
+            `${scoreBar}\n` +
+            `🎨 #${hex}`;
 
-        navigator.clipboard.writeText(text);   
+        navigator.clipboard.writeText(text);
+        
+        // Add visual feedback
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => {
+            copyBtn.textContent = originalText;
+        }, 2000);
     });
-
+        function renderStatistics() {
+        const raw = localStorage.getItem("hjf_history_v3");
+        const history = raw ? JSON.parse(raw) : [];
+        
+        // Filter only daily (non-random) games
+        const dailyGames = history.filter(e => !e.isRandom);
+        
+        if (dailyGames.length === 0) return;
+        
+        const avgScore = Math.round(
+            dailyGames.reduce((sum, e) => sum + e.score, 0) / dailyGames.length
+        );
+        const bestScore = Math.max(...dailyGames.map(e => e.score));
+        const totalGames = dailyGames.length;
+        
+        const statsDiv = document.createElement("div");
+        statsDiv.style.marginTop = "16px";
+        statsDiv.style.padding = "12px";
+        statsDiv.style.background = "#222";
+        statsDiv.style.borderRadius = "8px";
+        statsDiv.style.fontSize = "0.9rem";
+        statsDiv.style.textAlign = "center";
+        
+        statsDiv.innerHTML = `
+            <div style="margin: 4px 0;"><strong>Your Stats</strong></div>
+            <div style="margin: 4px 0;">Games Played: ${totalGames}</div>
+            <div style="margin: 4px 0;">Best Score: ${bestScore}%</div>
+            <div style="margin: 4px 0;">Average Score: ${avgScore}%</div>
+        `;
+        
+        return statsDiv;
+    }
+    // Helper function to create a visual score bar
+    function createScoreBar(score) {
+        const filled = Math.round(score / 10);
+        const empty = 10 - filled;
+        return "█".repeat(filled) + "░".repeat(empty);
+    }
     /* =========================
        MODE TOGGLES
        ========================= */
@@ -499,7 +564,6 @@ window.addEventListener('DOMContentLoaded', () => {
             } else character.src=blinkFrames[frameIndex++];
         },150);
     }
-    
     function renderPastHexcodles(container) {
         const raw = localStorage.getItem("hjf_history_v3");
         const history = raw ? JSON.parse(raw) : [];
@@ -510,12 +574,29 @@ window.addEventListener('DOMContentLoaded', () => {
             .sort((a,b) => b.number - a.number)
             .forEach(entry => {
                 const row = document.createElement("div");
+                row.className = "pastItem"; // Add the existing CSS class
 
                 const modeLabel = entry.mode === "mini" ? "Mini" : "Normal";
                 const randLabel = entry.isRandom ? " (Random)" : "";
+                
+                // Create color swatch
+                const colorSwatch = document.createElement("div");
+                colorSwatch.style.display = "inline-block";
+                colorSwatch.style.width = "24px";
+                colorSwatch.style.height = "24px";
+                colorSwatch.style.backgroundColor = "#" + entry.hex;
+                colorSwatch.style.borderRadius = "4px";
+                colorSwatch.style.border = "1px solid #555";
+                colorSwatch.style.marginRight = "10px";
+                colorSwatch.style.verticalAlign = "middle";
 
-                row.textContent =
+                // Create text content
+                const textSpan = document.createElement("span");
+                textSpan.textContent = 
                     `HJF Codle #${entry.number} — ${modeLabel}${randLabel} — ${entry.score}%`;
+
+                row.appendChild(colorSwatch);
+                row.appendChild(textSpan);
 
                 row.style.cursor = "pointer";
                 row.onclick = () => {
